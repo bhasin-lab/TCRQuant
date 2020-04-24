@@ -1,0 +1,382 @@
+---
+title: "Analysis of T cell receptors"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+date: "`r format(Sys.time(), '%d %B %Y')`"
+author: "bhasinlab.us/tcr_page"
+params:
+   cwd: temp
+   fil: NULL
+---
+
+```{r loadlibraries, message=F, warning=FALSE, include=FALSE}
+library(flexdashboard)
+library(tcR)
+library(LymphoSeq)
+library(ggplot2)
+library(ggfortify)
+library(ggpubr)
+library(dplyr)
+library(data.table)
+library(limma)
+library(edgeR)
+library(som)
+library(reshape)
+library(reshape2)
+library(pheatmap)
+library(circlize)
+library(ComplexHeatmap)
+library(WGCNA)
+library(flashClust)
+library(LPCM)
+library(xfun)
+```
+
+```{r readfiles,  warning=FALSE, echo=FALSE}
+sc.dir <- "/Users/rpanchal/Desktop/tcrquant"
+fl.dir <- "/Users/rpanchal/Desktop/tcrquant"
+er.file <- "/Users/rpanchal/Desktop/tcrquant/log.txt"
+er.msg <- "Early Exit code. Please check error log."
+cwd <- "/data2"
+fil <- "Yes"
+files.A <- list.files(paste(fl.dir,cwd,sep = ""),pattern = "A.*txt")
+files.B <- list.files(paste(fl.dir,cwd,sep = ""),pattern = "B.*txt")
+if (length(intersect(files.A,files.B)) != 0)
+{
+  write("Grouping Error. Please make sure the sample name does not contain the characters A/B reserved for Grouping Tag", er.file, append = TRUE, sep = "\n")
+  print(er.msg)
+  knitr::knit_exit()
+}
+```
+
+```{r loaddata, message=F, warning=FALSE, include=FALSE}
+immdataA <- parse.file.list(paste(fl.dir,cwd,"/",files.A,sep = ""), .format = 'mixcr')
+immdataB <- parse.file.list(paste(fl.dir,cwd,"/",files.B,sep = ""), .format = 'mixcr')
+save(immdataA, file = paste(fl.dir,cwd,'/immdataA.rda',sep = ""))
+save(immdataB, file = paste(fl.dir,cwd,'/immdataB.rda',sep = ""))
+load(paste(fl.dir,cwd,'/immdataA.rda',sep = "" ))
+load(paste(fl.dir,cwd,'/immdataB.rda',sep = "" ))
+source(paste(sc.dir,"/norm_rescale.R",sep = ""))
+```
+
+```{r import, include=FALSE}
+immdata <- c(immdataA,immdataB)
+TCRB.list.A <- readImmunoSeq(path = paste(fl.dir,cwd,"/A",sep = ""))
+TCRB.list.B <- readImmunoSeq(path = paste(fl.dir,cwd,"/B",sep = ""))
+TCRB.list <- c(TCRB.list.A, TCRB.list.B)
+if (sum(duplicated(names(TCRB.list))) != 0)
+{
+  write("Duplicated Names found on group folders A or B, please check sample names and run the analysis again.", er.file, append = TRUE, sep = "\n")
+  print(er.msg)
+  knitr::knit_exit()
+}
+numA <- length(TCRB.list.A)
+numB <- length(TCRB.list.B)
+```
+
+```{r productive, include=FALSE}
+productive.TRB.aa <- productiveSeq(file.list = TCRB.list, aggregate = "aminoAcid", 
+                               prevalence = FALSE)
+productive.TRB.nt <- productiveSeq(file.list = TCRB.list, aggregate = "nucleotide", 
+                               prevalence = FALSE)
+```
+
+Summary
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### Normalized Distribution
+
+```{r summary, echo=FALSE, warning=FALSE, message=FALSE}
+# if alpha-beta pair required
+if (fil == "Yes")
+{
+  source(paste(sc.dir,"/pairwise.R",sep = ""))
+}
+# else
+cl <- clonality(file.list = TCRB.list)
+productive.raw.count <- productive.TRB.aa
+unique.seqs <- uniqueSeqs(productive.aa = productive.TRB.aa)
+# Voom Normalize count data
+source(paste(sc.dir,"/quantile.R",sep = ""))
+print(note)
+if (dim(df3)[1] != 0)
+{
+  gseqplot <- ggplot(dge_melt, aes(x = variable, y = value)) + geom_boxplot(stat = "boxplot") + ggtitle("boxplot sequence count dist after voom") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  print(gseqplot)
+}
+write.table(dge_norm, paste(fl.dir,cwd,"/dge_norm.csv",sep=""), sep=",", quote=FALSE)
+```
+
+### Original Distribution
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+if (dim(df3)[1] != 0)
+{
+  df3_melt <- melt(df3)
+  gseq <- ggplot(df3_melt, aes(x = variable, y = value)) + geom_boxplot(stat = "boxplot") + ggtitle("boxplot sequence count dist Before voom") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  print(gseq)
+}
+```
+
+
+row
+-----------------------------------------------------------------------
+
+### Summary Statistics
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+print(cl[,c(1:2,4:5)])
+embed_file(paste(fl.dir,cwd,"/dge_norm.csv",sep=""), text='Download normalized counts')
+```
+
+Diversity
+=======================================================================
+
+row
+-----------------------------------------------------------------------
+
+### Rarefaction Curves
+
+```{r rare, echo=FALSE, fig.width=11, message=F, warning=FALSE}
+clmn <- 'Read.count'
+vis.rarefaction(rarefaction(immdata, .col = clmn, .verbose = F), .log = T)
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Diversity Index
+
+```{r truediv, echo=FALSE, message=F, warning=FALSE}
+div <- repDiversity(immdata, 'div', .do.norm = T)
+div.df <- data.frame(div = div)
+div.df$group <- c(rep("A",numA), rep("B",numB))
+#div.df$group <- c(rep("Control",2), rep("Vaccine",2),rep("Vaccine+PDL1",2))
+gdiv <- ggplot(data = div.df, aes(y = div, x = row.names(div.df), fill = group)) + geom_bar(stat = "identity") + xlab("Samples") + ylab("Diversity") + ggtitle("True Diversity Index") + 
+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), panel.background = element_blank(), axis.line = element_line())
+print(gdiv)
+```
+
+### Inverse Simpson Index
+
+```{r invsimp, echo=FALSE, message=F, warning=FALSE}
+div <- repDiversity(immdata, 'inv.simp', .do.norm = T)
+div.df <- data.frame(div = div)
+div.df$group <- c(rep("A",numA), rep("B",numB))
+#div.df$group <- c(rep("Control",2), rep("Vaccine",2),rep("Vaccine+PDL1",2))
+gsimp <- ggplot(data = div.df, aes(y = div, x = row.names(div.df), fill = group)) + geom_bar(stat = "identity") + xlab("Samples") + ylab("Diversity") + ggtitle("Inverse Simpson Index") + 
+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), panel.background = element_blank(), axis.line = element_line())
+print(gsimp)
+```
+
+row
+---------------------------------------------------------------------
+
+### Principal Component Analysis (PCA)
+
+```{r echo=FALSE, fig.height=5, fig.width=7}
+similarity.matrix <- bhattacharyyaMatrix(productive.seqs = productive.TRB.aa)
+pc <- prcomp(similarity.matrix)
+pc.df <- as.data.frame(pc$x)
+pc.df$sample <- row.names(pc.df)
+autoplot(pc, data = pc.df, colour = 'sample', size = 3.0)
+```
+
+### Hierarchical Clustering Analysis (HCA)
+
+```{r echo=FALSE, fig.height=8, fig.width=7}
+try(hc <- hclust(dist(similarity.matrix)), silent = T)
+try(plot(hc, xlab = "Samples", hang = -1), silent = T)
+```
+
+Clonal Proportion
+=====================================================================
+
+row
+---------------------------------------------------------------------
+
+### Top proportional Clones
+
+```{r echo=FALSE, fig.height=8, fig.width=5}
+top.seqs <- topSeqs(productive.seqs = productive.TRB.aa, top = 10)
+top.seqs$count = NULL
+top_cast <- cast(top.seqs, aminoAcid ~ samples)
+seqs2 <- data.frame(aminoAcid = top_cast$aminoAcid)
+for (i in names(productive.TRB.aa))
+{
+  aa <- top_cast$aminoAcid
+  x <- productive.TRB.aa[[i]]
+  seqs <- x[x$aminoAcid %in% aa,c(1,2)]
+  colnames(seqs) <- c("aminoAcid",i)
+  seqs2 <- merge(seqs2, seqs, by = "aminoAcid", all = T)
+}
+seqs2[t(apply(seqs2, 1, is.na))] = 0
+seqs2[,2:(numA+numB+1)] <- seqs2[,2:(numA+numB+1)] + 1
+write.table(seqs2, paste(fl.dir,cwd,"/topseqs_unscaled.csv",sep=""), sep=",", quote=FALSE)
+if (numA > 1)
+{
+  seqs2$scale <- apply(seqs2[,2:(numA+1)],1,mean)
+} else {
+    seqs2$scale <- seqs2[,2]
+}
+seqs2[,2:(numA+numB+1)] <- seqs2[,2:(numA+numB+1)] / seqs2$scale
+seqs2$scale = NULL
+write.table(seqs2, paste(fl.dir,cwd,"/topseqs_scaled.csv",sep=""), sep=",", quote=FALSE)
+seqs2$sig <- apply(seqs2[,(numA+2):(numA+numB+1)],1,mean)
+seqs2$type <- "2"
+seqs2$type[seqs2$sig >= 2.0] = "3"
+seqs2$type[seqs2$sig < 2.0] = "1"
+seqs2$sig = NULL
+seqs2_melt <- melt(seqs2, variable_name = "type")
+colnames(seqs2_melt) <- c("aminoAcid", "type", "samples", "CountFC")
+fl2 <- colorRamp2(c(1,2,3), colors = c("green","grey76","red"))
+g <- ggplot(seqs2_melt, aes(x = samples, y = aminoAcid, size = CountFC)) + geom_point(color = fl2(as.numeric(as.character(seqs2_melt$type)))) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), panel.background = element_blank(), axis.line = element_line())
+print(g)
+embed_file(paste(fl.dir,cwd,"/topseqs_unscaled.csv",sep=""), text='Download Top Seqs Unscaled')
+embed_file(paste(fl.dir,cwd,"/topseqs_scaled.csv",sep=""), text='Download Top Seqs Scaled')
+```
+
+### Overall Clonal Proportion
+
+```{r echo=FALSE, fig.height=6, fig.width=7}
+vis.top.proportions(immdata)
+```
+
+Differential Clones
+=====================================================================
+
+row
+---------------------------------------------------------------------
+
+### Heatmap
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.asp=1.5, fig.width=4.5}
+if (dim(df3)[1] != 0)
+{
+  # If samples from each group are multiple, perform p-value based DE
+  if (numA >= 2 & numB >= 2)
+  {
+    source(paste(sc.dir,"/edgeR_diff_exp.R",sep = ""))
+  } else {
+    # Perform column-wise Iterative differential abundance resulting in seqmat_final
+    source(paste(sc.dir,"/iter_diff_exp.R",sep = ""))
+  }
+    # Perform SOM on obtained seqmat_final
+  if (dim(seqmat_final)[1] > 2)
+  {
+    source(paste(sc.dir,"/som_test2.R",sep = ""))
+    seq2 <- som::normalize(seqmat_final)
+    fl <- colorRamp2(c(max(seq2),0,min(seq2)), colors = c("Red", "Black", "Green"))
+    print(Heatmap(seq2,col = fl, cluster_columns = F))
+    write.table(seqmat_final, paste(fl.dir,cwd,"/seqmat_final_clonotypes.csv",sep=""), sep=",", quote=FALSE)
+    embed_file(paste(fl.dir,cwd,"/seqmat_final_clonotypes.csv",sep=""), text='Download Differential Clonotypes data') 
+  }
+}
+```
+
+### Self Organizing Maps
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=7, fig.width=8}
+if (dim(df3)[1] != 0)
+{
+  if (dim(seqmat_final)[1] > 2)
+  {
+    sg <- list()
+    for (n in 1:num)
+    {
+      sg[[n]] <- smap(in.som,seqmat_final,n,0.3,"Clones ")
+    }
+    ggarrange(plotlist=sg, widths = c(1,1))
+  }
+}
+```
+
+row
+----------------------------------------------------------------------
+
+### Co-Expressed Clones
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=7, fig.width=8}
+# clustering based on co-expression networks of cdr3 clones
+source(paste(sc.dir,"/cluster.R",sep = ""))
+plotDendroAndColors(geneTree, dynamicColors, "Modules", dendroLabels = FALSE, hang = -1)
+plot(MS.wg, xlab = "MDS1", ylab = "MDS2")
+```
+
+Differential Genes
+======================================================================
+
+row
+----------------------------------------------------------------------
+
+### Heatmap
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.asp=1.4, fig.width=5}
+Genes <- geneFreq(productive.nt = productive.TRB.nt, locus = "VDJ", family = TRUE)
+# Count Matrix
+GeneMat <- reshape::cast(Genes, familyName ~ samples, value = "count", sum)
+rownames(GeneMat) = as.character(GeneMat$familyName)
+GeneMat$familyName = NULL
+
+# Voom Normalize Count Matrix
+dge <- DGEList(GeneMat)
+dge_voom <- voom(dge,plot = FALSE, normalize.method = "quantile")
+dge_norm <- data.frame(dge_voom$E)
+rownames(dge_norm) <- dge_norm$familyName
+dge_norm$familyName = NULL
+dge_melt <- melt(dge_norm)
+ggeneplot <- ggplot(dge_melt, aes(x = variable, y = value)) + geom_boxplot(stat = "boxplot") + ggtitle("boxplot gene count dist after voom") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+dge_norm <- t(apply(dge_norm, 1, rev))
+
+if (min(dge_norm) < 0)
+{
+  dge_norm <- dge_norm + abs(min(dge_norm))
+}
+
+# Perform column-wise Iterative differential abundance resulting in seqmat_final
+if (numA >= 2 & numB >= 2)
+  {
+    source(paste(sc.dir,"/edgeR_diff_exp.R",sep = ""))
+  } else {
+    # Perform column-wise Iterative differential abundance resulting in seqmat_final
+    #source(paste(sc.dir,"/iter_diff_exp.R",sep = ""))
+  }
+# Perform SOM on obtained seqmat_final
+if (dim(seqmat_final)[1] > 2)
+{
+  source(paste(sc.dir,"/som_test2.R",sep = ""))
+  seq2 <- som::normalize(seqmat_final)
+  fl <- colorRamp2(c(min(seq2),0,max(seq2)), colors = c("Green", "Black", "Red"))
+  print(Heatmap(seq2,col = fl, cluster_columns = F))
+  write.table(seqmat_final, paste(fl.dir,cwd,"/seqmat_final_genes.csv",sep=""), sep=",", quote=FALSE)
+  embed_file(paste(fl.dir,cwd,"/seqmat_final_genes.csv",sep=""), text='Download Differential Genes data')
+}
+```
+
+### Self-Organized Maps
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=7, fig.width=8}
+if (dim(seqmat_final)[1] > 2)
+{
+  #sg <- list()
+  for (n in 1:num)
+  {
+    sg[[n]] <- smap(in.som,seqmat_final,n,0.3,"Genes ")
+  }
+  ggarrange(plotlist=sg, widths = c(1,1))
+}
+```
+
+row
+----------------------------------------------------------------------
+
+### Normalized Gene Count Distribution
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+  print(ggeneplot)
+```
