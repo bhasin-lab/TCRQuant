@@ -11,7 +11,7 @@ dir.create(paste(fl.dir,cwd,"/B",sep = ""),mode = "0777")
  {
    sample_name <- names(immdataA)[sam]
    samp <- immdataA[[sam]]
-   samp <- samp[,c("CDR3.amino.acid.sequence","CDR3.nucleotide.sequence","Read.count","Read.proportion","V.gene","J.gene","D.gene")]
+   samp <- samp[,c("CDR3.aa","CDR3.nt","Clones","Proportion","V.name","J.name","D.name")]
    colnames(samp) <- c("aminoAcid","nucleotide","count","frequencyCount","vGeneName","jGeneName","dGeneName")
    samp$cdr3Length <- nchar(samp$nucleotide)
    samp$vFamilyName <- strsplit2(samp$vGeneName, split = "-")[,1]
@@ -24,7 +24,7 @@ dir.create(paste(fl.dir,cwd,"/B",sep = ""),mode = "0777")
  {
    sample_name <- names(immdataB)[sam]
    samp <- immdataB[[sam]]
-   samp <- samp[,c("CDR3.amino.acid.sequence","CDR3.nucleotide.sequence","Read.count","Read.proportion","V.gene","J.gene","D.gene")]
+   samp <- samp[,c("CDR3.aa","CDR3.nt","Clones","Proportion","V.name","J.name","D.name")]
    colnames(samp) <- c("aminoAcid","nucleotide","count","frequencyCount","vGeneName","jGeneName","dGeneName")
    samp$cdr3Length <- nchar(samp$nucleotide)
    samp$vFamilyName <- strsplit2(samp$vGeneName, split = "-")[,1]

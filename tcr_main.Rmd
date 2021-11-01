@@ -5,15 +5,13 @@ output:
     orientation: rows
     vertical_layout: scroll
 date: "`r format(Sys.time(), '%d %B %Y')`"
-author: "bhasinlab.us/tcr_page"
-params:
-   cwd: temp
-   fil: NULL
+author: "bhasinlab.bmi.emory.edu/tcr_page"
+
 ---
 
 ```{r loadlibraries, message=F, warning=FALSE, include=FALSE}
 library(flexdashboard)
-library(tcR)
+library(immunarch)
 library(LymphoSeq)
 library(ggplot2)
 library(ggfortify)
@@ -35,14 +33,24 @@ library(xfun)
 ```
 
 ```{r readfiles,  warning=FALSE, echo=FALSE}
-sc.dir <- "/Users/rpanchal/Desktop/tcrquant"
-fl.dir <- "/Users/rpanchal/Desktop/tcrquant"
-er.file <- "/Users/rpanchal/Desktop/tcrquant/log.txt"
+sc.dir <- "/opt/localdata/sarthak/projects/TCR/tcrquant/trial/"
+fl.dir <- "/opt/localdata/sarthak/projects/TCR/data"
+er.file <- "/opt/localdata/sarthak/projects/TCR/tcrquant/trial/tcr_pipelinelog.txt"
 er.msg <- "Early Exit code. Please check error log."
-cwd <- "/data2"
+cwd <- "/MBH_Fastq"
 fil <- "Yes"
-files.A <- list.files(paste(fl.dir,cwd,sep = ""),pattern = "A.*txt")
-files.B <- list.files(paste(fl.dir,cwd,sep = ""),pattern = "B.*txt")
+fl <- data.frame(path = list.files(paste(fl.dir,cwd,sep = ""),pattern = ".txt", full.names = T))
+fl$id = gsub('/opt/localdata/sarthak/projects/TCR/data/MBH_Fastq/MBH-69933-','',fl$path)
+fl$id = sapply(strsplit(fl$id, split = '_'),'[',1)
+fl$no = sapply(strsplit(fl$id, split = '-'),'[',2)
+fl$id = sapply(strsplit(fl$id, split = '-'),'[',1)
+info = data.frame('id'=c('G2M1A', 'G2M2A', 'G2M3A', 'G3M1A', 'G3M2A', 'G3M3A', 'CM1B', 'CM2B', 'CM3B', 'G2M1B', 'G2M2B', 'G2M3B', 'G3M1B', 'G3M2B','G2M1C', 'G2M2C', 'G2M3C', 'G3M1C', 'G3M2C'))
+info$meta =c(rep("A", 6), rep("ctrl", 3), rep("B", 5), rep("C", 5))
+fl = merge(fl,info, by = 'id')
+fl[is.na(fl$no),]$no = 1
+files.A <- subset(fl, no < 2 & meta == 'A')$path
+files.B <- subset(fl, no < 2 & meta == 'B')$path
+#files.C <- subset(fl, no < 2 & meta == 'C')$path
 if (length(intersect(files.A,files.B)) != 0)
 {
   write("Grouping Error. Please make sure the sample name does not contain the characters A/B reserved for Grouping Tag", er.file, append = TRUE, sep = "\n")
@@ -52,8 +60,10 @@ if (length(intersect(files.A,files.B)) != 0)
 ```
 
 ```{r loaddata, message=F, warning=FALSE, include=FALSE}
-immdataA <- parse.file.list(paste(fl.dir,cwd,"/",files.A,sep = ""), .format = 'mixcr')
-immdataB <- parse.file.list(paste(fl.dir,cwd,"/",files.B,sep = ""), .format = 'mixcr')
+immdataA <- repLoad(paste(files.A,sep = ""), .format = 'mixcr')
+immdataB <- repLoad(paste(files.B,sep = ""), .format = 'mixcr')
+immdataA <- immdataA$data
+immdataB <- immdataB$data
 save(immdataA, file = paste(fl.dir,cwd,'/immdataA.rda',sep = ""))
 save(immdataB, file = paste(fl.dir,cwd,'/immdataB.rda',sep = ""))
 load(paste(fl.dir,cwd,'/immdataA.rda',sep = "" ))
@@ -95,7 +105,7 @@ Column
 # if alpha-beta pair required
 if (fil == "Yes")
 {
-  source(paste(sc.dir,"/pairwise.R",sep = ""))
+  #source(paste(sc.dir,"/pairwise.R",sep = ""))
 }
 # else
 cl <- clonality(file.list = TCRB.list)
@@ -144,7 +154,7 @@ row
 
 ```{r rare, echo=FALSE, fig.width=11, message=F, warning=FALSE}
 clmn <- 'Read.count'
-vis.rarefaction(rarefaction(immdata, .col = clmn, .verbose = F), .log = T)
+vis(repDiversity(immdata, "raref"))
 ```
 
 Column
@@ -157,7 +167,7 @@ div <- repDiversity(immdata, 'div', .do.norm = T)
 div.df <- data.frame(div = div)
 div.df$group <- c(rep("A",numA), rep("B",numB))
 #div.df$group <- c(rep("Control",2), rep("Vaccine",2),rep("Vaccine+PDL1",2))
-gdiv <- ggplot(data = div.df, aes(y = div, x = row.names(div.df), fill = group)) + geom_bar(stat = "identity") + xlab("Samples") + ylab("Diversity") + ggtitle("True Diversity Index") + 
+gdiv <- ggplot(data = div.df, aes(y = div.Value, x = div.Sample, fill = group)) + geom_bar(stat = "identity") + xlab("Samples") + ylab("Diversity") + ggtitle("True Diversity Index") + 
 theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), panel.background = element_blank(), axis.line = element_line())
 print(gdiv)
 ```
@@ -169,7 +179,7 @@ div <- repDiversity(immdata, 'inv.simp', .do.norm = T)
 div.df <- data.frame(div = div)
 div.df$group <- c(rep("A",numA), rep("B",numB))
 #div.df$group <- c(rep("Control",2), rep("Vaccine",2),rep("Vaccine+PDL1",2))
-gsimp <- ggplot(data = div.df, aes(y = div, x = row.names(div.df), fill = group)) + geom_bar(stat = "identity") + xlab("Samples") + ylab("Diversity") + ggtitle("Inverse Simpson Index") + 
+gsimp <- ggplot(data = div.df, aes(y = div.Value, x = div.Sample, fill = group)) + geom_bar(stat = "identity") + xlab("Samples") + ylab("Diversity") + ggtitle("Inverse Simpson Index") + 
 theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), panel.background = element_blank(), axis.line = element_line())
 print(gsimp)
 ```
@@ -244,7 +254,8 @@ embed_file(paste(fl.dir,cwd,"/topseqs_scaled.csv",sep=""), text='Download Top Se
 ### Overall Clonal Proportion
 
 ```{r echo=FALSE, fig.height=6, fig.width=7}
-vis.top.proportions(immdata)
+imm_top <-repClonality(immdata, .method = "top", .head = c(10, 100, 1000, 3000, 10000))
+vis(imm_top)
 ```
 
 Differential Clones
@@ -303,9 +314,9 @@ row
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=7, fig.width=8}
 # clustering based on co-expression networks of cdr3 clones
-source(paste(sc.dir,"/cluster.R",sep = ""))
-plotDendroAndColors(geneTree, dynamicColors, "Modules", dendroLabels = FALSE, hang = -1)
-plot(MS.wg, xlab = "MDS1", ylab = "MDS2")
+#source(paste(sc.dir,"/cluster.R",sep = ""))
+#plotDendroAndColors(geneTree, dynamicColors, "Modules", dendroLabels = FALSE, hang = -1)
+#plot(MS.wg, xlab = "MDS1", ylab = "MDS2")
 ```
 
 Differential Genes
@@ -366,9 +377,9 @@ if (dim(seqmat_final)[1] > 2)
   #sg <- list()
   for (n in 1:num)
   {
-    sg[[n]] <- smap(in.som,seqmat_final,n,0.3,"Genes ")
+    #sg[[n]] <- smap(in.som,seqmat_final,n,0.3,"Genes ")
   }
-  ggarrange(plotlist=sg, widths = c(1,1))
+  #ggarrange(plotlist=sg, widths = c(1,1))
 }
 ```
 
