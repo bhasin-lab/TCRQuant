@@ -41,11 +41,11 @@ do
 	echo "Starting" ${file}
 	echo "Species :" ${1}
 
-	/home/hskhalsa/Desktop/tcr_pipeline_new/mixcr align -t 4 -s ${1} -r ${file}_align.log -OallowPartialAlignments=true -p rna-seq ${file}1.fastq.gz ${file}2.fastq.gz ${file}.vdjca > /dev/null
+	/opt/mixcr/mixcr-3.0.13 align -t 4 -s ${1} -r ${file}_align.log -OallowPartialAlignments=true -p rna-seq ${file}1.fastq.gz ${file}2.fastq.gz ${file}.vdjca > /dev/null
 	cat ${file}_align.log
-	/home/hskhalsa/Desktop/tcr_pipeline_new/mixcr assemblePartial ${file}.vdjca ${file}_contigs.vdjca > /dev/null
-	/home/hskhalsa/Desktop/tcr_pipeline_new/mixcr assemble -t 4 ${file}_contigs.vdjca ${file}.clns > /dev/null
-	/home/hskhalsa/Desktop/tcr_pipeline_new/mixcr exportClones ${file}.clns ${file}.txt > /dev/null
+	/opt/mixcr/mixcr-3.0.13 assemblePartial ${file}.vdjca ${file}_contigs.vdjca > /dev/null
+	/opt/mixcr/mixcr-3.0.13 assemble -t 4 ${file}_contigs.vdjca ${file}.clns > /dev/null
+	/opt/mixcr/mixcr-3.0.13 exportClones ${file}.clns ${file}.txt > /dev/null
 
 	echo ${file} "done"
 
@@ -57,4 +57,4 @@ echo "All data has been pre-processed and clonotype count files generated..."
 
 
 # Post process
-Rscript /home/hskhalsa/Desktop/tcr_pipeline_new/ranalysis.R ${1}
+Rscript ./ranalysis.R ${1}
