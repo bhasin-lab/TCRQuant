@@ -4,11 +4,25 @@
 
 library(rmarkdown)
 library(flexdashboard)
+library(argparse)
 
-src = './'
-fl.dir = 'opt/localdata/sarthak/projects/TCR/data/'
+#src = './'
+#fl.dir = 'opt/localdata/sarthak/projects/TCR/data/'
 #args = commandArgs(TRUE)
-cwd = '/MBH_Fastq'
-fil = 'Yes'
+#cwd = '/MBH_Fastq'
+#fil = 'Yes'
 
-rmarkdown::render('./tcr_main.Rmd', output_dir=paste(fl.dir,cwd,sep=""), knit_root_dir=paste(fl.dir,cwd,sep=""), params = list(cwd = cwd, fil = fil))
+parser <- ArgumentParser()
+parser$add_argument("-pA", "--path_to_fileA", help="Path to input meta file list Group A (required)")
+parser$add_argument("-pB", "--path_to_fileB", help="Path to input meta file list Group B (required)")
+parser$add_argument("-d", "--cwd", help="Working directory path")
+parser$add_argument("-f", "--filter", help="Filter")
+
+args <- parser$parse_args()
+cwd <- args$cwd
+fil <- args$filter
+pathA <- args$path_to_fileA
+pathB <- args$path_to_fileB
+
+rmarkdown::render('./tcr_main.Rmd', output_dir=cwd, knit_root_dir=cwd,
+                  params = list(cwd = cwd, fil = fil, pathA = pathA, pathB = pathB))

@@ -4,8 +4,8 @@
 #library(limma)
 #library(tcR)
 
-dir.create(paste(fl.dir,cwd,"/A",sep = ""),mode = "0777")
-dir.create(paste(fl.dir,cwd,"/B",sep = ""),mode = "0777")
+dir.create(paste(cwd,"/A",sep = ""),mode = "0777")
+dir.create(paste(cwd,"/B",sep = ""),mode = "0777")
 
  for (sam in 1:length(immdataA))
  {
@@ -17,7 +17,7 @@ dir.create(paste(fl.dir,cwd,"/B",sep = ""),mode = "0777")
    samp$vFamilyName <- strsplit2(samp$vGeneName, split = "-")[,1]
    samp$jFamilyName <- strsplit2(samp$jGeneName, split = "-")[,1]
    samp$dFamilyName <- strsplit2(samp$dGeneName, split = "-")[,1]
-   write.table(samp, file = paste(fl.dir,cwd,"/A/",sample_name,".tsv",sep = ''),sep = "\t", quote = FALSE, row.names = FALSE)
+   write.table(samp, file = paste(cwd,"/A/",sample_name,".tsv",sep = ''),sep = "\t", quote = FALSE, row.names = FALSE)
  }
  
  for (sam in 1:length(immdataB))
@@ -30,5 +30,5 @@ dir.create(paste(fl.dir,cwd,"/B",sep = ""),mode = "0777")
    samp$vFamilyName <- strsplit2(samp$vGeneName, split = "-")[,1]
    samp$jFamilyName <- strsplit2(samp$jGeneName, split = "-")[,1]
    samp$dFamilyName <- strsplit2(samp$dGeneName, split = "-")[,1]
-   write.table(samp, file = paste(fl.dir,cwd,"/B/",sample_name,".tsv",sep = ''),sep = "\t", quote = FALSE, row.names = FALSE)
+   write.table(samp, file = paste(cwd,"/B/",sample_name,".tsv",sep = ''),sep = "\t", quote = FALSE, row.names = FALSE)
  }

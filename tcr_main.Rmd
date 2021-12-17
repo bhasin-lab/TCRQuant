@@ -6,7 +6,11 @@ output:
     vertical_layout: scroll
 date: "`r format(Sys.time(), '%d %B %Y')`"
 author: "bhasinlab.bmi.emory.edu/tcr_page"
-
+params:
+  cwd: '/current/working/directory/'
+  fil: 'Yes'
+  pathA: '/path/to/fileA'
+  pathB: '/path/to/fileB'
 ---
 
 ```{r loadlibraries, message=F, warning=FALSE, include=FALSE}
@@ -33,24 +37,15 @@ library(xfun)
 ```
 
 ```{r readfiles,  warning=FALSE, echo=FALSE}
-sc.dir <- "/opt/localdata/sarthak/projects/TCR/tcrquant/trial/"
-fl.dir <- "/opt/localdata/sarthak/projects/TCR/data"
-er.file <- "/opt/localdata/sarthak/projects/TCR/tcrquant/trial/tcr_pipelinelog.txt"
+cwd <- params$cwd
+er.file <- paste0(cwd,"/tcr_pipelinelog.txt")
 er.msg <- "Early Exit code. Please check error log."
-cwd <- "/MBH_Fastq"
-fil <- "Yes"
-fl <- data.frame(path = list.files(paste(fl.dir,cwd,sep = ""),pattern = ".txt", full.names = T))
-fl$id = gsub('/opt/localdata/sarthak/projects/TCR/data/MBH_Fastq/MBH-69933-','',fl$path)
-fl$id = sapply(strsplit(fl$id, split = '_'),'[',1)
-fl$no = sapply(strsplit(fl$id, split = '-'),'[',2)
-fl$id = sapply(strsplit(fl$id, split = '-'),'[',1)
-info = data.frame('id'=c('G2M1A', 'G2M2A', 'G2M3A', 'G3M1A', 'G3M2A', 'G3M3A', 'CM1B', 'CM2B', 'CM3B', 'G2M1B', 'G2M2B', 'G2M3B', 'G3M1B', 'G3M2B','G2M1C', 'G2M2C', 'G2M3C', 'G3M1C', 'G3M2C'))
-info$meta =c(rep("A", 6), rep("ctrl", 3), rep("B", 5), rep("C", 5))
-fl = merge(fl,info, by = 'id')
-fl[is.na(fl$no),]$no = 1
-files.A <- subset(fl, no < 2 & meta == 'A')$path
-files.B <- subset(fl, no < 2 & meta == 'B')$path
-#files.C <- subset(fl, no < 2 & meta == 'C')$path
+fil <- params$fil
+flA <- fread(params$pathA)
+flB <- fread(params$pathB)
+files.A <- flA$V1
+files.B <- flB$V1
+
 if (length(intersect(files.A,files.B)) != 0)
 {
   write("Grouping Error. Please make sure the sample name does not contain the characters A/B reserved for Grouping Tag", er.file, append = TRUE, sep = "\n")
@@ -64,17 +59,17 @@ immdataA <- repLoad(paste(files.A,sep = ""), .format = 'mixcr')
 immdataB <- repLoad(paste(files.B,sep = ""), .format = 'mixcr')
 immdataA <- immdataA$data
 immdataB <- immdataB$data
-save(immdataA, file = paste(fl.dir,cwd,'/immdataA.rda',sep = ""))
-save(immdataB, file = paste(fl.dir,cwd,'/immdataB.rda',sep = ""))
-load(paste(fl.dir,cwd,'/immdataA.rda',sep = "" ))
-load(paste(fl.dir,cwd,'/immdataB.rda',sep = "" ))
-source(paste(sc.dir,"/norm_rescale.R",sep = ""))
+save(immdataA, file = paste(cwd,'/immdataA.rda',sep = ""))
+save(immdataB, file = paste(cwd,'/immdataB.rda',sep = ""))
+load(paste(cwd,'/immdataA.rda',sep = ""))
+load(paste(cwd,'/immdataB.rda',sep = ""))
+source("./norm_rescale.R")
 ```
 
 ```{r import, include=FALSE}
 immdata <- c(immdataA,immdataB)
-TCRB.list.A <- readImmunoSeq(path = paste(fl.dir,cwd,"/A",sep = ""))
-TCRB.list.B <- readImmunoSeq(path = paste(fl.dir,cwd,"/B",sep = ""))
+TCRB.list.A <- readImmunoSeq(path = paste(cwd,"/A",sep = ""))
+TCRB.list.B <- readImmunoSeq(path = paste(cwd,"/B",sep = ""))
 TCRB.list <- c(TCRB.list.A, TCRB.list.B)
 if (sum(duplicated(names(TCRB.list))) != 0)
 {
@@ -105,21 +100,21 @@ Column
 # if alpha-beta pair required
 if (fil == "Yes")
 {
-  #source(paste(sc.dir,"/pairwise.R",sep = ""))
+  #source("./pairwise.R")
 }
 # else
 cl <- clonality(file.list = TCRB.list)
 productive.raw.count <- productive.TRB.aa
 unique.seqs <- uniqueSeqs(productive.aa = productive.TRB.aa)
 # Voom Normalize count data
-source(paste(sc.dir,"/quantile.R",sep = ""))
+source("./quantile.R")
 print(note)
 if (dim(df3)[1] != 0)
 {
   gseqplot <- ggplot(dge_melt, aes(x = variable, y = value)) + geom_boxplot(stat = "boxplot") + ggtitle("boxplot sequence count dist after voom") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
   print(gseqplot)
 }
-write.table(dge_norm, paste(fl.dir,cwd,"/dge_norm.csv",sep=""), sep=",", quote=FALSE)
+write.table(dge_norm, paste(cwd,"/dge_norm.csv",sep=""), sep=",", quote=FALSE)
 ```
 
 ### Original Distribution
@@ -141,7 +136,7 @@ row
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 print(cl[,c(1:2,4:5)])
-embed_file(paste(fl.dir,cwd,"/dge_norm.csv",sep=""), text='Download normalized counts')
+embed_file(paste(cwd,"/dge_norm.csv",sep=""), text='Download normalized counts')
 ```
 
 Diversity
@@ -227,7 +222,7 @@ for (i in names(productive.TRB.aa))
 }
 seqs2[t(apply(seqs2, 1, is.na))] = 0
 seqs2[,2:(numA+numB+1)] <- seqs2[,2:(numA+numB+1)] + 1
-write.table(seqs2, paste(fl.dir,cwd,"/topseqs_unscaled.csv",sep=""), sep=",", quote=FALSE)
+write.table(seqs2, paste(cwd,"/topseqs_unscaled.csv",sep=""), sep=",", quote=FALSE)
 if (numA > 1)
 {
   seqs2$scale <- apply(seqs2[,2:(numA+1)],1,mean)
@@ -236,7 +231,7 @@ if (numA > 1)
 }
 seqs2[,2:(numA+numB+1)] <- seqs2[,2:(numA+numB+1)] / seqs2$scale
 seqs2$scale = NULL
-write.table(seqs2, paste(fl.dir,cwd,"/topseqs_scaled.csv",sep=""), sep=",", quote=FALSE)
+write.table(seqs2, paste(cwd,"/topseqs_scaled.csv",sep=""), sep=",", quote=FALSE)
 seqs2$sig <- apply(seqs2[,(numA+2):(numA+numB+1)],1,mean)
 seqs2$type <- "2"
 seqs2$type[seqs2$sig >= 2.0] = "3"
@@ -247,8 +242,8 @@ colnames(seqs2_melt) <- c("aminoAcid", "type", "samples", "CountFC")
 fl2 <- colorRamp2(c(1,2,3), colors = c("green","grey76","red"))
 g <- ggplot(seqs2_melt, aes(x = samples, y = aminoAcid, size = CountFC)) + geom_point(color = fl2(as.numeric(as.character(seqs2_melt$type)))) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), panel.background = element_blank(), axis.line = element_line())
 print(g)
-embed_file(paste(fl.dir,cwd,"/topseqs_unscaled.csv",sep=""), text='Download Top Seqs Unscaled')
-embed_file(paste(fl.dir,cwd,"/topseqs_scaled.csv",sep=""), text='Download Top Seqs Scaled')
+embed_file(paste(cwd,"/topseqs_unscaled.csv",sep=""), text='Download Top Seqs Unscaled')
+embed_file(paste(cwd,"/topseqs_scaled.csv",sep=""), text='Download Top Seqs Scaled')
 ```
 
 ### Overall Clonal Proportion
@@ -272,20 +267,20 @@ if (dim(df3)[1] != 0)
   # If samples from each group are multiple, perform p-value based DE
   if (numA >= 2 & numB >= 2)
   {
-    source(paste(sc.dir,"/edgeR_diff_exp.R",sep = ""))
+    source(paste("./edgeR_diff_exp.R",sep = ""))
   } else {
     # Perform column-wise Iterative differential abundance resulting in seqmat_final
-    source(paste(sc.dir,"/iter_diff_exp.R",sep = ""))
+    source(paste("./iter_diff_exp.R",sep = ""))
   }
     # Perform SOM on obtained seqmat_final
   if (dim(seqmat_final)[1] > 2)
   {
-    source(paste(sc.dir,"/som_test2.R",sep = ""))
+    source(paste("./som_test2.R",sep = ""))
     seq2 <- som::normalize(seqmat_final)
     fl <- colorRamp2(c(max(seq2),0,min(seq2)), colors = c("Red", "Black", "Green"))
     print(Heatmap(seq2,col = fl, cluster_columns = F))
-    write.table(seqmat_final, paste(fl.dir,cwd,"/seqmat_final_clonotypes.csv",sep=""), sep=",", quote=FALSE)
-    embed_file(paste(fl.dir,cwd,"/seqmat_final_clonotypes.csv",sep=""), text='Download Differential Clonotypes data') 
+    write.table(seqmat_final, paste(cwd,"/seqmat_final_clonotypes.csv",sep=""), sep=",", quote=FALSE)
+    embed_file(paste(cwd,"/seqmat_final_clonotypes.csv",sep=""), text='Download Differential Clonotypes data') 
   }
 }
 ```
@@ -352,7 +347,7 @@ if (min(dge_norm) < 0)
 # Perform column-wise Iterative differential abundance resulting in seqmat_final
 if (numA >= 2 & numB >= 2)
   {
-    source(paste(sc.dir,"/edgeR_diff_exp.R",sep = ""))
+    source(paste("./edgeR_diff_exp.R",sep = ""))
   } else {
     # Perform column-wise Iterative differential abundance resulting in seqmat_final
     #source(paste(sc.dir,"/iter_diff_exp.R",sep = ""))
@@ -364,8 +359,8 @@ if (dim(seqmat_final)[1] > 2)
   seq2 <- som::normalize(seqmat_final)
   fl <- colorRamp2(c(min(seq2),0,max(seq2)), colors = c("Green", "Black", "Red"))
   print(Heatmap(seq2,col = fl, cluster_columns = F))
-  write.table(seqmat_final, paste(fl.dir,cwd,"/seqmat_final_genes.csv",sep=""), sep=",", quote=FALSE)
-  embed_file(paste(fl.dir,cwd,"/seqmat_final_genes.csv",sep=""), text='Download Differential Genes data')
+  write.table(seqmat_final, paste(cwd,"/seqmat_final_genes.csv",sep=""), sep=",", quote=FALSE)
+  embed_file(paste(cwd,"/seqmat_final_genes.csv",sep=""), text='Download Differential Genes data')
 }
 ```
 
