@@ -41,8 +41,8 @@ cwd <- params$cwd
 er.file <- paste0(cwd,"/tcr_pipelinelog.txt")
 er.msg <- "Early Exit code. Please check error log."
 fil <- params$fil
-flA <- fread(params$pathA)
-flB <- fread(params$pathB)
+flA <- fread(params$pathA, header = F)
+flB <- fread(params$pathB, header = F)
 files.A <- flA$V1
 files.B <- flB$V1
 
@@ -309,7 +309,7 @@ row
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=7, fig.width=8}
 # clustering based on co-expression networks of cdr3 clones
-#source(paste(sc.dir,"/cluster.R",sep = ""))
+#source(paste(cwd,"/cluster.R",sep = ""))
 #plotDendroAndColors(geneTree, dynamicColors, "Modules", dendroLabels = FALSE, hang = -1)
 #plot(MS.wg, xlab = "MDS1", ylab = "MDS2")
 ```
@@ -350,12 +350,12 @@ if (numA >= 2 & numB >= 2)
     source(paste("./edgeR_diff_exp.R",sep = ""))
   } else {
     # Perform column-wise Iterative differential abundance resulting in seqmat_final
-    #source(paste(sc.dir,"/iter_diff_exp.R",sep = ""))
+    #source(paste(cwd,"/iter_diff_exp.R",sep = ""))
   }
 # Perform SOM on obtained seqmat_final
 if (dim(seqmat_final)[1] > 2)
 {
-  source(paste(sc.dir,"/som_test2.R",sep = ""))
+  source(paste(cwd,"/som_test2.R",sep = ""))
   seq2 <- som::normalize(seqmat_final)
   fl <- colorRamp2(c(min(seq2),0,max(seq2)), colors = c("Green", "Black", "Red"))
   print(Heatmap(seq2,col = fl, cluster_columns = F))
