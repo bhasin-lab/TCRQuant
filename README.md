@@ -51,9 +51,18 @@ mixcr assemblePartial <file name>.vdjca <file name>_contigs.vdjca
 mixcr assemble -t 4 <file name>_contigs.vdjca <file name>.clns 
 mixcr exportClones <file name>.clns <file name>.txt
 ```
+### Processing files for TCRQuant
 
-
-
+The `<file name>.txt` files can be grouped into two classes A and B. The files should be present in directories say `Afiles` and `Bfiles`.
 
 ## TCRQuant
 
+The final step of the analysis is to run TCRQuant. The arguements for running the program are:
+
+1. -pA or "--path_to_fileA", "Path to input meta file list Group A (required)
+2. -pB or "--path_to_fileB", "Path to input meta file list Group B (required)
+3. -d or "--cwd", "Working directory path"
+
+```
+Rscript ranalysis.R -d . -f no -pA /path/to/Afiles -pB /path/to/Afiles 
+```
