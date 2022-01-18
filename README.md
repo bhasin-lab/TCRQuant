@@ -43,5 +43,17 @@ done
 
 echo "MixCR done"
 ```
+More generally 
+
+```
+mixcr align -t 4 -s <Species name> -r <Log file name> -OallowPartialAlignments=true -p rna-seq <Forward Read fastq.gz> <Reverse Read fastq.gz> <file name>.vdjca
+mixcr assemblePartial <file name>.vdjca <file name>_contigs.vdjca 
+mixcr assemble -t 4 <file name>_contigs.vdjca <file name>.clns 
+mixcr exportClones <file name>.clns <file name>.txt
+```
+
+
+
+
 ## TCRQuant
 
