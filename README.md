@@ -18,11 +18,46 @@ cd cd mixcr-3.0.13/
 ```
 The path of executable file `./mixcr` can be added to the `.bashrc` file. Detailed installation steps can be followed from the [MiXCR installation manual](https://mixcr.readthedocs.io/en/develop/install.html).
 
+## Downsampling 
+
+This is a sample bash script that can be used to downsample. The users should change the directory to the working directory with fastq.gz files.
+
+```downsampling
+cd /presnt/working/directory
+down="yes"
+if [ ! $down == "no" ]
+then
+        #re='^[0-9]+$'
+        if [ $down == "yes" ]
+        then
+                echo $down
+                #subsample
+                for i in `ls *.fastq.gz`; do echo $(zcat ${i} | wc -l)/4|bc; done > count.txt
+                count=$(sort -r count.txt | tail -1)
+                echo ${count}
+        else
+                count=$(($down + 0))
+                echo ${count}
+        fi
+        gzip -d *.fastq.gz
+        for file in $(ls *.fastq | rev | cut -c 8- | rev | uniq)
+        do
+                paste ${file}1.fastq ${file}2.fastq | awk '{ printf("%s",$0); n++;
+                if(n%4==0) { printf("\n");} else { printf("\t");} }' |
+                awk -v k=${count} 'BEGIN{srand(systime() + PROCINFO["pid"]);}{s=x++<k?x-1:int(rand()*x);if(s<k)R[s]=$0}END{for(i in R)print R[i]}' |
+                awk -F"\t" '{print $1"\n"$3"\n"$5"\n"$7 > "'${file}'_sub_1.fastq"; print $2"\n"$4"\n"$6"\n"$8 > "'${file}'_sub_2.fastq"}'
+                rm ${file}1.fastq ${file}2.fastq
+        done
+        gzip *.fastq
+
+```
+
+
 ## MiXCR 
 
-MiXCR files can be put in the same directory. The typical input files are in the fastq.gz format. A sample code to run MiXCR on your samples is here
+MiXCR files can be put in the same directory. The typical input files are in the fastq.gz format. A sample code to run MiXCR on your samples is her
 
-```mixcr run
+```mixcr run Pre-processing
 echo "Starting Pre-processing.."
 
 for file in $(ls *.fastq.gz | rev | cut -c 11- | rev | uniq)
